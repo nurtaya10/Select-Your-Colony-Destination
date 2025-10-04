@@ -1,0 +1,348 @@
+import { useState, useEffect } from "react";
+import { ResourcePanel } from "./components/ResourcePanel";
+import { BuildingMenu } from "./components/BuildingMenu";
+import { GameBoard } from "./components/GameBoard";
+import { PlanetSelector } from "./components/PlanetSelector";
+import { Button } from "./components/ui/button";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { Card } from "./components/ui/card";
+import { Play, Pause, RotateCcw, Trophy, AlertTriangle, TrendingUp } from "lucide-react";
+import { BUILDINGS } from "./data/buildings";
+import { PlanetData } from "./data/planets";
+import nasaLogo from 'figma:asset/05320bcab35cc436461da5107ec26baba4599689.png';
+import deitaLogo from 'figma:asset/7c79c02872a5311ec10033db6dc80bee21342f53.png';
+
+interface PlacedBuilding {
+  id: string;
+  row: number;
+  col: number;
+  buildingType: string;
+}
+
+interface Resources {
+  oxygen: number;
+  power: number;
+  water: number;
+  food: number;
+  population: number;
+}
+
+export default function App() {
+  const [selectedPlanet, setSelectedPlanet] = useState<PlanetData | null>(null);
+  const [resources, setResources] = useState<Resources>({
+    oxygen: 50,
+    power: 100,
+    water: 50,
+    food: 50,
+    population: 0
+  });
+  
+  const [buildings, setBuildings] = useState<PlacedBuilding[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
+  const [day, setDay] = useState(1);
+  const [isRunning, setIsRunning] = useState(false);
+  const [gameWon, setGameWon] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+
+  const MAX_POPULATION = 50;
+  const WIN_POPULATION = 30;
+
+  // Initialize resources based on planet
+  useEffect(() => {
+    if (selectedPlanet) {
+      setResources(selectedPlanet.startResources);
+      setBuildings([]);
+      setDay(1);
+      setIsRunning(false);
+      setGameWon(false);
+      setIsGameOver(false);
+      setSelectedBuilding(null);
+    }
+  }, [selectedPlanet]);
+
+  // Game loop - update resources each day
+  useEffect(() => {
+    if (!isRunning || !selectedPlanet) return;
+
+    const interval = setInterval(() => {
+      setResources(prev => {
+        let newResources = { ...prev };
+
+        // Calculate production from buildings
+        buildings.forEach(building => {
+          const buildingType = BUILDINGS.find(b => b.id === building.buildingType);
+          if (buildingType) {
+            // Apply planet modifiers to production
+            const powerMod = selectedPlanet.resourceModifiers.powerEfficiency;
+            const waterMod = selectedPlanet.resourceModifiers.waterAvailability;
+            
+            newResources.oxygen += (buildingType.produces.oxygen || 0);
+            newResources.power += (buildingType.produces.power || 0) * (buildingType.produces.power && buildingType.produces.power > 0 ? powerMod : 1);
+            newResources.water += (buildingType.produces.water || 0) * waterMod;
+            newResources.food += (buildingType.produces.food || 0);
+            newResources.population += (buildingType.produces.population || 0);
+          }
+        });
+
+        // Cap population at max
+        newResources.population = Math.min(newResources.population, MAX_POPULATION);
+
+        // Consumption - population consumes resources
+        const tempChallenge = selectedPlanet.resourceModifiers.temperatureChallenge;
+        const popConsumption = newResources.population;
+        
+        newResources.oxygen -= popConsumption * 0.5 * tempChallenge;
+        newResources.water -= popConsumption * 0.3 * tempChallenge;
+        newResources.food -= popConsumption * 0.4;
+        newResources.power -= popConsumption * 0.2;
+
+        // Ensure resources don't go negative
+        newResources.oxygen = Math.max(0, newResources.oxygen);
+        newResources.power = Math.max(0, newResources.power);
+        newResources.water = Math.max(0, newResources.water);
+        newResources.food = Math.max(0, newResources.food);
+
+        // Check for game over conditions
+        if (newResources.population > 0) {
+          if (newResources.oxygen <= 0 || newResources.water <= 0 || newResources.food <= 0) {
+            setIsGameOver(true);
+            setIsRunning(false);
+          }
+        }
+
+        return newResources;
+      });
+
+      setDay(prev => prev + 1);
+    }, 1500); // Update every 1.5 seconds
+
+    return () => clearInterval(interval);
+  }, [isRunning, buildings, selectedPlanet]);
+
+  // Check win condition
+  useEffect(() => {
+    if (resources.population >= WIN_POPULATION && !gameWon && selectedPlanet) {
+      setGameWon(true);
+      setIsRunning(false);
+    }
+  }, [resources.population, gameWon, selectedPlanet]);
+
+  const handlePlaceBuilding = (row: number, col: number) => {
+    if (!selectedBuilding) return;
+
+    const buildingType = BUILDINGS.find(b => b.id === selectedBuilding);
+    if (!buildingType) return;
+
+    // Check if can afford
+    const canAfford = 
+      (!buildingType.cost.power || resources.power >= buildingType.cost.power) &&
+      (!buildingType.cost.water || resources.water >= buildingType.cost.water) &&
+      (!buildingType.cost.food || resources.food >= buildingType.cost.food);
+
+    if (!canAfford) return;
+
+    // Deduct costs
+    setResources(prev => ({
+      ...prev,
+      power: prev.power - (buildingType.cost.power || 0),
+      water: prev.water - (buildingType.cost.water || 0),
+      food: prev.food - (buildingType.cost.food || 0)
+    }));
+
+    // Place building
+    setBuildings(prev => [...prev, {
+      id: `${selectedBuilding}-${Date.now()}`,
+      row,
+      col,
+      buildingType: selectedBuilding
+    }]);
+  };
+
+  const handleReset = () => {
+    setSelectedPlanet(null);
+  };
+
+  const getProductionStats = () => {
+    let oxygen = 0, power = 0, water = 0, food = 0;
+    
+    buildings.forEach(building => {
+      const buildingType = BUILDINGS.find(b => b.id === building.buildingType);
+      if (buildingType && selectedPlanet) {
+        const powerMod = selectedPlanet.resourceModifiers.powerEfficiency;
+        const waterMod = selectedPlanet.resourceModifiers.waterAvailability;
+        
+        oxygen += buildingType.produces.oxygen || 0;
+        power += (buildingType.produces.power || 0) * (buildingType.produces.power && buildingType.produces.power > 0 ? powerMod : 1);
+        water += (buildingType.produces.water || 0) * waterMod;
+        food += buildingType.produces.food || 0;
+      }
+    });
+
+    // Subtract consumption
+    if (selectedPlanet) {
+      const tempChallenge = selectedPlanet.resourceModifiers.temperatureChallenge;
+      oxygen -= resources.population * 0.5 * tempChallenge;
+      water -= resources.population * 0.3 * tempChallenge;
+      food -= resources.population * 0.4;
+      power -= resources.population * 0.2;
+    }
+
+    return { oxygen, power, water, food };
+  };
+
+  // Planet selection screen
+  if (!selectedPlanet) {
+    return <PlanetSelector onSelectPlanet={setSelectedPlanet} />;
+  }
+
+  const production = getProductionStats();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white via-red-50 to-white p-6 relative">
+      {/* Corner logos and text */}
+      <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+        <img src={nasaLogo} alt="NASA" className="w-8 h-8" />
+        <span className="text-red-600 text-xs">NASA Space Apps Challenge</span>
+      </div>
+      
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+        <span className="text-red-600 text-xs">DeIТa</span>
+        <img src={deitaLogo} alt="DeITa" className="w-8 h-8" />
+      </div>
+
+      <div className="max-w-[1800px] mx-auto space-y-6 pt-8">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-red-600">Colonial Space Expansion Program</h1>
+          <p className="text-black/60">
+            {selectedPlanet.name} Colony • Day {day} • 
+            <span className="ml-2">Target: {WIN_POPULATION} Population</span>
+          </p>
+        </div>
+
+        {/* Resources */}
+        <ResourcePanel resources={resources} maxPopulation={MAX_POPULATION} />
+
+        {/* Win Condition Alert */}
+        {gameWon && (
+          <Alert className="bg-green-600 border-2 border-green-800">
+            <Trophy className="h-5 w-5 text-white" />
+            <AlertDescription className="text-white">
+              Victory! Your {selectedPlanet.name} colony has reached {WIN_POPULATION} population. 
+              Humanity's future among the stars is secure!
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Game Over Alert */}
+        {isGameOver && (
+          <Alert className="bg-red-600 border-2 border-red-800">
+            <AlertTriangle className="h-5 w-5 text-white" />
+            <AlertDescription className="text-white">
+              Colony Failed! Critical resource shortage has resulted in colony collapse. 
+              The colonists have perished.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Game Controls & Stats */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 items-center">
+          {/* Production Stats */}
+          <Card className="p-4 bg-white border-2 border-black">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-black" />
+              <span className="text-black">Net Production/Day</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-sm">
+              <div className={production.oxygen >= 0 ? 'text-green-600' : 'text-red-600'}>
+                O₂: {production.oxygen > 0 ? '+' : ''}{production.oxygen.toFixed(1)}
+              </div>
+              <div className={production.power >= 0 ? 'text-green-600' : 'text-red-600'}>
+                ⚡: {production.power > 0 ? '+' : ''}{production.power.toFixed(1)}
+              </div>
+              <div className={production.water >= 0 ? 'text-green-600' : 'text-red-600'}>
+                💧: {production.water > 0 ? '+' : ''}{production.water.toFixed(1)}
+              </div>
+              <div className={production.food >= 0 ? 'text-green-600' : 'text-red-600'}>
+                🌾: {production.food > 0 ? '+' : ''}{production.food.toFixed(1)}
+              </div>
+            </div>
+          </Card>
+
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              onClick={() => setIsRunning(!isRunning)}
+              disabled={gameWon || isGameOver}
+              className={isRunning 
+                ? "bg-red-600 hover:bg-red-700 text-white" 
+                : "bg-green-600 hover:bg-green-700 text-white"
+              }
+            >
+              {isRunning ? (
+                <>
+                  <Pause className="w-4 h-4 mr-2" />
+                  Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Start
+                </>
+              )}
+            </Button>
+            <Button onClick={handleReset} variant="outline" className="border-2 border-black">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              New Colony
+            </Button>
+          </div>
+
+          {/* Planet Info */}
+          <Card className="p-4 bg-white border-2 border-black">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-red-600">
+                <img 
+                  src={selectedPlanet.imageUrl} 
+                  alt={selectedPlanet.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="text-sm space-y-1">
+                <div className="text-black">{selectedPlanet.name}</div>
+                <div className="text-black/60">Gravity: {selectedPlanet.gravity}g</div>
+                <div className="text-black/60">Temp: {selectedPlanet.avgTemp}°C</div>
+                <div className="text-black/60">Buildings: {buildings.length}/100</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Main Game Area */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+          <GameBoard 
+            buildings={buildings}
+            selectedBuilding={selectedBuilding}
+            onPlaceBuilding={handlePlaceBuilding}
+            planetSurface={selectedPlanet.surfaceColor}
+          />
+          
+          <BuildingMenu 
+            selectedBuilding={selectedBuilding}
+            onSelectBuilding={setSelectedBuilding}
+            resources={resources}
+          />
+        </div>
+
+        {/* Instructions */}
+        <Card className="p-4 bg-white border-2 border-black text-sm text-black/70">
+          <p>
+            <strong className="text-black">Mission Objective:</strong> Build a thriving colony of {WIN_POPULATION} population. 
+            Select buildings from the menu and place them on the surface. Balance resource production and consumption. 
+            If oxygen, water, or food reach zero with population present, the colony fails. 
+            All planetary data based on NASA research.
+          </p>
+        </Card>
+      </div>
+    </div>
+  );
+}
