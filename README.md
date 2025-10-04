@@ -20,7 +20,7 @@ _Manage vital resources to keep your colony alive:_
 
 **_Keep your colony balanced — resources are consumed daily and produced by your buildings._**
 
-##🏗️ Buildings & Construction
+## 🏗️ Buildings & Construction
 
 _Choose from various modules:_
 - Habitat Modules 🏠
@@ -38,9 +38,9 @@ _Time advances every 1.5 seconds — watch your colony grow or struggle as resou
 
 ## 🎯 Win & Lose Conditions
 
-_Win by reaching a target population of 30 colonists! 🎉
+Win by reaching a target population of 30 colonists! 🎉
 
-Lose if oxygen, water, or food drop to zero with people still alive 😵._
+Lose if oxygen, water, or food drop to zero with people still alive 😵.
 
 ## 🛠️ Technical Highlights
 
@@ -76,11 +76,17 @@ cd select-your-colony-destination
 npm install
 npm start
 ```
-
-  ## Acknowledgments
+## Acknowledgments
 
   - UI components provided by [shadcn/ui](https://ui.shadcn.com/), licensed under the [MIT License](https://github.com/shadcn-ui/ui/blob/main/LICENSE.md).
   - Photos and images in the Figma prototype sourced from [Unsplash](https://unsplash.com), used under the [Unsplash License](https://unsplash.com/license).
 
 
 **Choose your planet, start building, and explore the challenges of space colonization! 🌌**
+
+## 🧪 Interactive Prototype and Demo
+
+ -  Explore the interactive Figma prototype here:  
+👉 [Select Your Colony Destination – Figma](https://www.figma.com/make/nTdwQcTgPgsj2hMzUhpnrx/Select-Your-Colony-Destination?fullscreen=1)
+ -  Watch the Demonstration video here:  
+👉 [Select Your Colony Destination – Youtube](https://youtu.be/8T5Zxvfr01Q?feature=shared)
