@@ -77,5 +77,10 @@ npm install
 npm start
 ```
 
+  ## Acknowledgments
+
+  - UI components provided by [shadcn/ui](https://ui.shadcn.com/), licensed under the [MIT License](https://github.com/shadcn-ui/ui/blob/main/LICENSE.md).
+  - Photos and images in the Figma prototype sourced from [Unsplash](https://unsplash.com), used under the [Unsplash License](https://unsplash.com/license).
+
 
 **Choose your planet, start building, and explore the challenges of space colonization! 🌌**
